@@ -1,10 +1,12 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { CheckCircle2, AlertCircle, ShieldCheck, ShieldAlert } from "lucide-react";
 import {
   createContactTag,
   deleteContact,
   deleteContactTag,
+  toggleContactConsent,
   updateContact,
   type ContactActionState,
 } from "./actions";
@@ -90,14 +92,16 @@ function EditContactForm({ contact }: { contact: ContactRowData }) {
         />
       </label>
       {state.error && (
-        <p className="contact-action-message is-error" role="alert">
-          {state.error}
-        </p>
+        <div className="contact-action-message is-error" role="alert">
+          <AlertCircle size={15} />
+          <span>{state.error}</span>
+        </div>
       )}
       {state.success && (
-        <p className="contact-action-message is-success" role="status">
-          {state.success}
-        </p>
+        <div className="contact-action-message is-success" role="status">
+          <CheckCircle2 size={15} />
+          <span>{state.success}</span>
+        </div>
       )}
       <button className="primary-button" type="submit" disabled={pending}>
         {pending ? "Salvando..." : "Salvar alterações"}
@@ -109,9 +113,16 @@ function EditContactForm({ contact }: { contact: ContactRowData }) {
 export function ContactRow({ contact }: { contact: ContactRowData }) {
   const [editing, setEditing] = useState(false);
   const [addingTag, setAddingTag] = useState(false);
+  const [consentState, consentAction, consentPending] = useActionState<
+    ContactActionState,
+    FormData
+  >(toggleContactConsent, {});
+
+  const isOptedIn = contact.consent_status === "opted_in";
+
   const consentLabels = {
     unknown: "Sem consentimento",
-    opted_in: "Autorizado",
+    opted_in: "Autorizado para campanhas",
     opted_out: "Descadastrado",
   };
 
@@ -125,20 +136,67 @@ export function ContactRow({ contact }: { contact: ContactRowData }) {
           <strong>{contact.name}</strong>
           <span>{contact.phone}</span>
         </div>
-        <span className={`consent-badge consent-${contact.consent_status}`}>
-          <span />
-          {consentLabels[contact.consent_status]}
-        </span>
+        <div className="contact-badge-container">
+          <span className={`consent-badge consent-${contact.consent_status}`}>
+            <span />
+            {consentLabels[contact.consent_status]}
+          </span>
+        </div>
       </div>
+
       <div className="contact-card-details">
         <span>{contact.email || "Sem e-mail"}</span>
         <span>Adicionado em {formatDate(contact.created_at)}</span>
       </div>
+
       {contact.notes && (
         <p className="contact-notes" title={contact.notes}>
           {contact.notes}
         </p>
       )}
+
+      {/* Ação de alternar consentimento rápido para liberar em campanhas */}
+      <div className="contact-consent-toggle-row">
+        <form action={consentAction}>
+          <input type="hidden" name="id" value={contact.id} />
+          <input
+            type="hidden"
+            name="status"
+            value={isOptedIn ? "unknown" : "opted_in"}
+          />
+          <button
+            type="submit"
+            className={`contact-consent-button ${isOptedIn ? "is-authorized" : "is-unauthorized"}`}
+            disabled={consentPending}
+          >
+            {isOptedIn ? (
+              <>
+                <ShieldCheck size={14} />
+                {consentPending ? "Atualizando..." : "Autorizado (clique para remover)"}
+              </>
+            ) : (
+              <>
+                <ShieldAlert size={14} />
+                {consentPending ? "Atualizando..." : "Autorizar para campanhas"}
+              </>
+            )}
+          </button>
+        </form>
+      </div>
+
+      {consentState.error && (
+        <div className="contact-action-message is-error" role="alert">
+          <AlertCircle size={14} />
+          <span>{consentState.error}</span>
+        </div>
+      )}
+      {consentState.success && (
+        <div className="contact-action-message is-success" role="status">
+          <CheckCircle2 size={14} />
+          <span>{consentState.success}</span>
+        </div>
+      )}
+
       {contact.recentMessages.length > 0 && (
         <details className="contact-history">
           <summary>Histórico de comunicação ({contact.recentMessages.length})</summary>
@@ -154,6 +212,7 @@ export function ContactRow({ contact }: { contact: ContactRowData }) {
           </ul>
         </details>
       )}
+
       <div className="contact-tags" aria-label="Etiquetas">
         {contact.contact_tags.map((tag) => (
           <span className="contact-tag" key={tag.id}>
@@ -179,6 +238,7 @@ export function ContactRow({ contact }: { contact: ContactRowData }) {
           {addingTag ? "Fechar" : "+ Etiqueta"}
         </button>
       </div>
+
       <div className="contact-row-actions">
         <button
           type="button"
@@ -203,6 +263,7 @@ export function ContactRow({ contact }: { contact: ContactRowData }) {
           </button>
         </form>
       </div>
+
       {addingTag && <AddContactTagForm contactId={contact.id} />}
       {editing && <EditContactForm contact={contact} />}
     </article>
@@ -229,14 +290,16 @@ function AddContactTagForm({ contactId }: { contactId: string }) {
         {pending ? "..." : "Adicionar"}
       </button>
       {state.error && (
-        <p className="contact-action-message is-error" role="alert">
-          {state.error}
-        </p>
+        <div className="contact-action-message is-error" role="alert">
+          <AlertCircle size={14} />
+          <span>{state.error}</span>
+        </div>
       )}
       {state.success && (
-        <p className="contact-action-message is-success" role="status">
-          {state.success}
-        </p>
+        <div className="contact-action-message is-success" role="status">
+          <CheckCircle2 size={14} />
+          <span>{state.success}</span>
+        </div>
       )}
     </form>
   );

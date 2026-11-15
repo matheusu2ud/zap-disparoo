@@ -4,6 +4,7 @@ import ExcelJS from "exceljs";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export type ContactActionState = {
   error?: string;
@@ -111,6 +112,73 @@ export async function updateContact(
   revalidatePath("/contatos");
   revalidatePath("/painel");
   return { success: "Contato atualizado." };
+}
+
+
+export async function toggleContactConsent(
+  _previousState: ContactActionState,
+  formData: FormData,
+): Promise<ContactActionState> {
+  const id = getValue(formData, "id");
+  const targetStatus = getValue(formData, "status");
+
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
+    return { error: "Identificador de contato inválido." };
+  }
+
+  const { supabase, user } = await getAuthenticatedClient();
+
+  const { data: contact, error: findError } = await supabase
+    .from("contacts")
+    .select("id, name, consent_status, opted_out_at")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (findError || !contact) {
+    return { error: "Contato não encontrado." };
+  }
+
+  if (contact.opted_out_at && targetStatus !== "opted_out") {
+    return { error: "Contatos descadastrados não podem ter a autorização reativada diretamente." };
+  }
+
+  const admin = createAdminClient();
+  const updateData =
+    targetStatus === "opted_in"
+      ? {
+          consent_status: "opted_in",
+          consented_at: new Date().toISOString(),
+          consent_source: "manual_dashboard",
+          opted_out_at: null,
+        }
+      : {
+          consent_status: "unknown",
+          consented_at: null,
+          consent_source: null,
+          opted_out_at: null,
+        };
+
+  const { error: updateError } = await admin
+    .from("contacts")
+    .update(updateData)
+    .eq("id", id)
+    .eq("user_id", user.id);
+
+  if (updateError) {
+    return { error: "Não foi possível alterar a autorização: " + updateError.message };
+  }
+
+  revalidatePath("/contatos");
+  revalidatePath("/campaigns");
+  revalidatePath("/painel");
+
+  return {
+    success:
+      targetStatus === "opted_in"
+        ? "Contato autorizado com sucesso! Agora ele aparecerá nas campanhas."
+        : "Autorização removida do contato.",
+  };
 }
 
 export async function deleteContact(formData: FormData) {

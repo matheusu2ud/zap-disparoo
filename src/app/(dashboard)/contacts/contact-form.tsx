@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { CheckCircle2, AlertCircle } from "lucide-react";
 import { createContact, type ContactActionState } from "./actions";
 
 export function NewContactForm() {
@@ -19,13 +20,13 @@ export function NewContactForm() {
         <div className="contact-form-heading">
           <div>
             <h2>Cadastrar contato</h2>
-            <p>Contato novo começa sem autorização para receber mensagens.</p>
+            <p>Adicione um novo número para enviar mensagens e campanhas.</p>
           </div>
         </div>
         <div className="contact-form-grid">
           <label className="contact-field">
             <span>Nome</span>
-            <input name="name" required maxLength={200} autoComplete="name" />
+            <input name="name" required maxLength={200} autoComplete="name" placeholder="Ex.: Maria Silva" />
           </label>
           <label className="contact-field">
             <span>Telefone</span>
@@ -51,18 +52,28 @@ export function NewContactForm() {
           </label>
           <label className="contact-field contact-field-full">
             <span>Observações <i>Opcional</i></span>
-            <textarea name="notes" maxLength={2000} rows={3} />
+            <textarea name="notes" maxLength={2000} rows={3} placeholder="Anotações sobre o cliente..." />
           </label>
+          <div className="contact-field-full">
+            <label className="contact-consent-checkbox-label">
+              <input type="checkbox" name="autoConsent" defaultChecked />
+              <span>
+                <strong>Autorizar para campanhas</strong> (Recomendado para poder selecionar nas campanhas de disparo)
+              </span>
+            </label>
+          </div>
         </div>
         {state.error && (
-          <p className="contact-action-message is-error" role="alert">
-            {state.error}
-          </p>
+          <div className="contact-action-message is-error" role="alert">
+            <AlertCircle size={15} />
+            <span>{state.error}</span>
+          </div>
         )}
         {state.success && (
-          <p className="contact-action-message is-success" role="status">
-            {state.success}
-          </p>
+          <div className="contact-action-message is-success" role="status">
+            <CheckCircle2 size={15} />
+            <span>{state.success}</span>
+          </div>
         )}
         <div className="contact-form-actions">
           <button className="secondary-button" type="reset">
