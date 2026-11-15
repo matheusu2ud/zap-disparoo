@@ -1,4 +1,5 @@
 import "server-only";
+import QRCode from "qrcode";
 
 export type EvolutionConnectionState =
   | "connected"
@@ -167,7 +168,7 @@ export async function createEvolutionInstance(
   const instance = asRecord(root?.instance);
   const instanceId =
     typeof instance?.instanceId === "string" ? instance.instanceId : null;
-  const qrCode = qrImageFromPayload(payload);
+  const qrCode = await qrImageFromPayload(payload);
 
   return { instanceId, qrCode };
 }
@@ -177,7 +178,7 @@ export async function connectEvolutionInstance(instanceName: string) {
     `/instance/connect/${encodeURIComponent(instanceName)}`,
     "GET",
   );
-  return qrImageFromPayload(payload);
+  return await qrImageFromPayload(payload);
 }
 
 export async function getEvolutionConnectionState(instanceName: string) {
