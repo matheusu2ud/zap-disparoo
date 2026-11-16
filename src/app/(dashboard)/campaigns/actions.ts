@@ -20,6 +20,22 @@ function isUuid(value: string) {
   );
 }
 
+function translateCampaignError(message: string): string {
+  if (message.includes("monthly_campaign_limit_reached")) {
+    return "Você atingiu o limite de campanhas do seu plano para este mês. Faça upgrade ou ative o plano ilimitado.";
+  }
+  if (message.includes("contact_limit_reached")) {
+    return "Você atingiu o limite de contatos cadastrados do seu plano.";
+  }
+  if (message.includes("active_plan_required")) {
+    return "É necessário ter um plano ativo para criar campanhas. Acesse a aba Planos.";
+  }
+  if (message.includes("storage_limit_reached")) {
+    return "Limite de armazenamento de mídia do plano atingido.";
+  }
+  return `Não foi possível criar a campanha: ${message}`;
+}
+
 async function getAuthenticatedClient() {
   const supabase = await createClient();
   const {
@@ -132,7 +148,7 @@ export async function createCampaign(
   if (campaignError || !campaign) {
     return {
       error: campaignError
-        ? `Não foi possível criar a campanha: ${campaignError.message}`
+        ? translateCampaignError(campaignError.message)
         : "Não foi possível confirmar a criação da campanha.",
     };
   }
