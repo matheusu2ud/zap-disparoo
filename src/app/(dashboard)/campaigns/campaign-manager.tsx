@@ -4,6 +4,18 @@ import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  Zap,
+  Clock,
+  Trash2,
+  XCircle,
+  Users,
+  CheckCircle2,
+  AlertCircle,
+  ShieldCheck,
+  Send,
+  Sparkles,
+} from "lucide-react";
+import {
   cancelCampaign,
   createCampaign,
   deleteDraftCampaign,
@@ -33,8 +45,8 @@ export type CampaignFormOptions = {
 const statusNames: Record<string, string> = {
   draft: "Rascunho",
   scheduled: "Agendada",
-  queued: "Na fila",
-  running: "Processando",
+  queued: "Disparando / Na fila",
+  running: "Disparando Agora",
   paused: "Pausada",
   completed: "Concluída",
   canceled: "Cancelada",
@@ -44,16 +56,18 @@ const statusNames: Record<string, string> = {
 function ActionMessage({ state }: { state: CampaignActionState }) {
   if (state.error) {
     return (
-      <p className="campaign-action-message is-error" role="alert">
-        {state.error}
-      </p>
+      <div className="campaign-action-message is-error" role="alert">
+        <AlertCircle size={15} />
+        <span>{state.error}</span>
+      </div>
     );
   }
   if (state.success) {
     return (
-      <p className="campaign-action-message is-success" role="status">
-        {state.success}
-      </p>
+      <div className="campaign-action-message is-success" role="status">
+        <CheckCircle2 size={15} />
+        <span>{state.success}</span>
+      </div>
     );
   }
   return null;
@@ -88,40 +102,62 @@ export function NewCampaignForm({ options }: { options: CampaignFormOptions }) {
     );
   }
 
+  function selectAllContacts() {
+    if (selectedContacts.length === options.contacts.length) {
+      setSelectedContacts([]);
+    } else {
+      setSelectedContacts(options.contacts.slice(0, 500).map((c) => c.id));
+    }
+  }
+
+  function insertVariable(tag: string) {
+    setMessageBody((prev) => prev + tag);
+  }
+
   return (
     <details className="campaign-create-disclosure">
-      <summary className="primary-button">
-        <span aria-hidden="true">+</span>
-        Nova campanha
+      <summary className="primary-button turbo-main-btn">
+        <Zap size={16} />
+        <span>Criar Novo Disparo</span>
       </summary>
-      <form className="campaign-create-form" action={formAction}>
-        <h2>Criar campanha</h2>
-        <p>
-          O envio não acontece ao criar a campanha. Apenas contatos com
-          consentimento ativo podem entrar na fila.
-        </p>
+      <form className="campaign-create-form turbo-form" action={formAction}>
+        <div className="turbo-header">
+          <div className="turbo-badge">
+            <Zap size={13} /> DISPARADOR TURBO
+          </div>
+          <h2>Configurar Campanha de Disparo</h2>
+          <p>
+            Envie mensagens personalizadas e mídias em massa diretamente pelo seu WhatsApp.
+          </p>
+        </div>
+
         <label className="campaign-field">
-          <span>Nome da campanha</span>
+          <span>Nome da Campanha</span>
           <input
             name="name"
             required
             maxLength={200}
-            placeholder="Ex.: Novidades de novembro"
+            placeholder="Ex.: Disparo Promocional Black Friday"
           />
         </label>
+
         <label className="campaign-field">
-          <span>Conexão WhatsApp <i>Necessária para agendar</i></span>
-          <select name="connection_id" defaultValue="">
-            <option value="">Selecionar depois</option>
-            {options.connections.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.label}
-              </option>
-            ))}
+          <span>Conexão WhatsApp (Chip de Envio)</span>
+          <select name="connection_id" defaultValue={options.connections[0]?.id ?? ""}>
+            {options.connections.length === 0 ? (
+              <option value="">Nenhum WhatsApp conectado (Vá em Conexões)</option>
+            ) : (
+              options.connections.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.label} (Conectado)
+                </option>
+              ))
+            )}
           </select>
         </label>
+
         <label className="campaign-field">
-          <span>Usar template <i>Opcional</i></span>
+          <span>Usar Template Pronto <i>Opcional</i></span>
           <select
             value={selectedTemplate}
             onChange={(event) => {
@@ -132,7 +168,7 @@ export function NewCampaignForm({ options }: { options: CampaignFormOptions }) {
               if (template) setMessageBody(template.body);
             }}
           >
-            <option value="">Escrever nova mensagem</option>
+            <option value="">Escrever mensagem personalizada</option>
             {options.templates.map((template) => (
               <option key={template.id} value={template.id}>
                 {template.name}
@@ -140,8 +176,40 @@ export function NewCampaignForm({ options }: { options: CampaignFormOptions }) {
             ))}
           </select>
         </label>
+
+        {/* Variáveis Dinâmicas Rápidas */}
+        <div className="turbo-vars-bar">
+          <span className="turbo-vars-label">
+            <Sparkles size={12} /> Tags Rápidas:
+          </span>
+          <button
+            type="button"
+            className="turbo-var-tag"
+            onClick={() => insertVariable(" {nome} ")}
+            title="Injeta o primeiro nome do contato"
+          >
+            + Nome
+          </button>
+          <button
+            type="button"
+            className="turbo-var-tag"
+            onClick={() => insertVariable(" {saudacao} ")}
+            title="Injeta Bom dia / Boa tarde automaticamente"
+          >
+            + Saudação
+          </button>
+          <button
+            type="button"
+            className="turbo-var-tag"
+            onClick={() => insertVariable(" {telefone} ")}
+            title="Injeta o telefone do contato"
+          >
+            + Telefone
+          </button>
+        </div>
+
         <label className="campaign-field">
-          <span>Mensagem</span>
+          <span>Texto da Mensagem</span>
           <textarea
             name="message_body"
             required
@@ -149,43 +217,64 @@ export function NewCampaignForm({ options }: { options: CampaignFormOptions }) {
             maxLength={5000}
             value={messageBody}
             onChange={(event) => setMessageBody(event.target.value)}
-            placeholder="Escreva a mensagem da campanha..."
+            placeholder="Olá {nome}! Tudo bem? Veja as novidades exclusivas de hoje..."
           />
           <small>{messageBody.length}/5.000 caracteres</small>
         </label>
+
         <label className="campaign-field">
-          <span>Mídia <i>Opcional</i></span>
+          <span>Anexo de Mídia <i>Opcional</i></span>
           <select name="media_file_id" defaultValue="">
-            <option value="">Sem mídia</option>
+            <option value="">Sem anexo (apenas texto)</option>
             {options.media.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.content_type.startsWith("image/")
-                  ? "Foto"
+                  ? "📷 Foto"
                   : item.content_type.startsWith("video/")
-                    ? "Vídeo"
-                    : "Documento"}{" "}
+                    ? "🎬 Vídeo"
+                    : "📄 Documento"}{" "}
                 — {item.file_name}
               </option>
             ))}
           </select>
           <small>
-            Para adicionar uma foto ou vídeo, primeiro envie o arquivo na{" "}
-            <Link href="/media">biblioteca de mídia</Link>. Ele será enviado
-            junto com a mensagem quando a campanha for processada.
+            Para fotos ou vídeos, adicione antes na{" "}
+            <Link href="/media">Biblioteca de Mídia</Link>.
           </small>
         </label>
-        <div className="campaign-contact-picker">
+
+        {/* Seleção em Massa de Contatos */}
+        <div className="campaign-contact-picker turbo-picker">
           <div className="campaign-picker-heading">
-            <span>Contatos autorizados</span>
-            <strong>{selectedContacts.length}/500 selecionados</strong>
+            <div className="turbo-picker-title">
+              <Users size={15} />
+              <span>Destinatários do Disparo</span>
+            </div>
+            <div className="turbo-picker-actions">
+              <button
+                type="button"
+                className="turbo-select-all-btn"
+                onClick={selectAllContacts}
+              >
+                {selectedContacts.length === options.contacts.length &&
+                options.contacts.length > 0
+                  ? "Desmarcar Todos"
+                  : "Selecionar Todos"}
+              </button>
+              <strong className="turbo-counter">
+                {selectedContacts.length} de {options.contacts.length}
+              </strong>
+            </div>
           </div>
+
           <input
             type="search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Buscar contatos..."
-            aria-label="Buscar contatos autorizados"
+            placeholder="🔍 Buscar por nome ou telefone..."
+            aria-label="Buscar contatos"
           />
+
           <div className="campaign-contact-list">
             {visibleContacts.length ? (
               visibleContacts.map((contact) => (
@@ -209,21 +298,33 @@ export function NewCampaignForm({ options }: { options: CampaignFormOptions }) {
                 </label>
               ))
             ) : (
-              <p>
+              <p className="turbo-empty-contacts">
                 {options.contacts.length
-                  ? "Nenhum contato corresponde à busca."
-                  : "Não há contatos com consentimento ativo."}
+                  ? "Nenhum contato encontrado na busca."
+                  : "Nenhum contato autorizado encontrado. Vá na aba 'Contatos' e clique em 'Autorizar para campanhas'."}
               </p>
             )}
           </div>
-          <small>
-            A autorização será conferida novamente antes de agendar e deverá
-            ser revalidada pelo futuro processador antes de cada envio.
-          </small>
+
+          <div className="turbo-anti-ban-note">
+            <ShieldCheck size={14} />
+            <span>
+              <strong>Proteção Anti-Ban Ativa:</strong> Os disparos são espaçados com delays inteligentes para simular digitação humana e proteger seu número.
+            </span>
+          </div>
         </div>
+
         <ActionMessage state={state} />
-        <button className="primary-button" type="submit" disabled={pending}>
-          {pending ? "Criando..." : "Salvar rascunho"}
+
+        <button className="primary-button turbo-submit-btn" type="submit" disabled={pending}>
+          {pending ? (
+            "Criando Campanha..."
+          ) : (
+            <>
+              <Send size={15} />
+              <span>Criar Campanha de Disparo</span>
+            </>
+          )}
         </button>
       </form>
     </details>
@@ -243,7 +344,7 @@ function ScheduleForm({ campaignId }: { campaignId: string }) {
 
   return (
     <form
-      className="campaign-schedule-form"
+      className="campaign-schedule-form turbo-schedule-form"
       action={formAction}
       onSubmit={(event) => {
         const offsetField =
@@ -254,23 +355,40 @@ function ScheduleForm({ campaignId }: { campaignId: string }) {
       }}
     >
       <input type="hidden" name="campaign_id" value={campaignId} />
-      <input
-        type="hidden"
-        name="timezone_offset"
-        defaultValue={0}
-      />
-      <label>
-        <span>Data e hora <i>Opcional</i></span>
-        <input type="datetime-local" name="scheduled_at" />
-      </label>
-      <button className="campaign-primary-action" type="submit" disabled={pending}>
-        {pending ? "Agendando..." : "Colocar na fila"}
-      </button>
+      <input type="hidden" name="timezone_offset" defaultValue={0} />
+
+      <div className="turbo-actions-bar">
+        {/* Disparo Imediato */}
+        <button
+          className="turbo-instant-launch-btn"
+          type="submit"
+          disabled={pending}
+          title="Inicia o disparo em massa agora mesmo"
+        >
+          <Zap size={15} />
+          <span>{pending ? "Disparando..." : "DISPARAR AGORA"}</span>
+        </button>
+
+        {/* Agendamento Opcional */}
+        <div className="turbo-schedule-input-group">
+          <Clock size={14} />
+          <input
+            type="datetime-local"
+            name="scheduled_at"
+            placeholder="Agendar horário"
+            title="Escolha uma data e horário futuro se não quiser disparar agora"
+          />
+          <button
+            className="turbo-schedule-btn"
+            type="submit"
+            disabled={pending}
+          >
+            Agendar
+          </button>
+        </div>
+      </div>
+
       <ActionMessage state={state} />
-      <small>
-        Sem data, a campanha entra na fila imediatamente. O envio só ocorrerá
-        quando um processador de fila estiver configurado.
-      </small>
     </form>
   );
 }
@@ -290,14 +408,15 @@ function CancelForm({ campaignId }: { campaignId: string }) {
     <form
       action={formAction}
       onSubmit={(event) => {
-        if (!window.confirm("Cancelar esta campanha e seus itens ainda na fila?")) {
+        if (!window.confirm("Deseja realmente pausar e cancelar este disparo?")) {
           event.preventDefault();
         }
       }}
     >
       <input type="hidden" name="campaign_id" value={campaignId} />
-      <button className="campaign-danger-action" type="submit" disabled={pending}>
-        {pending ? "Cancelando..." : "Cancelar"}
+      <button className="campaign-danger-action turbo-cancel-btn" type="submit" disabled={pending}>
+        <XCircle size={14} />
+        <span>{pending ? "Parando..." : "Pausar / Cancelar Disparo"}</span>
       </button>
       <ActionMessage state={state} />
     </form>
@@ -322,35 +441,48 @@ export function CampaignCard({ campaign }: { campaign: CampaignRow }) {
       }).format(new Date(campaign.scheduled_at))
     : null;
 
+  const isLive = ["queued", "running"].includes(campaign.status);
+
   return (
-    <article className="campaign-card">
+    <article className={`campaign-card turbo-card ${isLive ? "is-active-disparo" : ""}`}>
       <div className="campaign-card-heading">
         <div>
-          <span className={`campaign-status status-${campaign.status}`}>
-            {statusNames[campaign.status] ?? campaign.status}
-          </span>
+          <div className="turbo-card-status-row">
+            <span className={`campaign-status status-${campaign.status}`}>
+              {isLive && <span className="turbo-pulse" />}
+              {statusNames[campaign.status] ?? campaign.status}
+            </span>
+          </div>
           <h2>{campaign.name}</h2>
         </div>
-        <span className="campaign-recipient-count">
-          {campaign.recipient_count} contato
-          {campaign.recipient_count === 1 ? "" : "s"}
+        <div className="turbo-recipient-pill">
+          <Users size={13} />
+          <strong>{campaign.recipient_count}</strong>
+          <span>{campaign.recipient_count === 1 ? "destinatário" : "destinatários"}</span>
+        </div>
+      </div>
+
+      <p className="campaign-message-preview">{campaign.message_body}</p>
+
+      <div className="campaign-card-meta turbo-meta">
+        <span className="turbo-connection-badge">
+          📱 {campaign.connection_label ?? "Sem conexão selecionada"}
         </span>
+        {campaign.media_file_name && (
+          <span className="turbo-media-badge">📎 {campaign.media_file_name}</span>
+        )}
+        {scheduledDate && (
+          <span className="turbo-date-badge">⏰ Agendada: {scheduledDate}</span>
+        )}
       </div>
-      <p className="campaign-message-preview">
-        {campaign.message_body}
-      </p>
-      <div className="campaign-card-meta">
-        <span>{campaign.connection_label ?? "Sem conexão selecionada"}</span>
-        {campaign.media_file_name && <span>{campaign.media_file_name}</span>}
-        {scheduledDate && <span>Agendada: {scheduledDate}</span>}
-      </div>
+
       {campaign.status === "draft" ? (
-        <div className="campaign-draft-actions">
+        <div className="campaign-draft-actions turbo-draft-actions">
           {campaign.recipient_count > 0 ? (
             <ScheduleForm campaignId={campaign.id} />
           ) : (
             <p className="campaign-hint">
-              Adicione contatos autorizados para disponibilizar o agendamento.
+              Adicione contatos autorizados para habilitar o botão de disparo.
             </p>
           )}
           <form
@@ -363,17 +495,20 @@ export function CampaignCard({ campaign }: { campaign: CampaignRow }) {
           >
             <input type="hidden" name="campaign_id" value={campaign.id} />
             <button
-              className="campaign-danger-action"
+              className="campaign-danger-action turbo-delete-btn"
               type="submit"
               disabled={deletePending}
             >
-              {deletePending ? "Excluindo..." : "Excluir rascunho"}
+              <Trash2 size={13} />
+              <span>{deletePending ? "Excluindo..." : "Excluir Rascunho"}</span>
             </button>
             <ActionMessage state={deleteState} />
           </form>
         </div>
       ) : ["scheduled", "queued", "paused"].includes(campaign.status) ? (
-        <CancelForm campaignId={campaign.id} />
+        <div className="turbo-active-actions">
+          <CancelForm campaignId={campaign.id} />
+        </div>
       ) : null}
     </article>
   );
