@@ -337,10 +337,50 @@ function ScheduleForm({ campaignId }: { campaignId: string }) {
     CampaignActionState,
     FormData
   >(scheduleCampaign, {});
+  const [dispatchStatus, setDispatchStatus] = useState<string | null>(null);
+  const [dispatching, setDispatching] = useState(false);
 
   useEffect(() => {
-    if (state.success) router.refresh();
-  }, [router, state.success]);
+    if (state.success && !state.error) {
+      router.refresh();
+      // Após agendar com sucesso, dispara o worker automaticamente
+      const isScheduled =
+        typeof state.success === "string" && state.success.includes("agendada");
+      if (!isScheduled) {
+        triggerWorker();
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.success, state.error]);
+
+  async function triggerWorker() {
+    setDispatching(true);
+    setDispatchStatus("⚡ Iniciando disparos...");
+    try {
+      const res = await fetch("/api/workers/fire", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        sent?: number;
+        failed?: number;
+        skipped?: number;
+        error?: string;
+      };
+      if (!res.ok || data.error) {
+        setDispatchStatus(`⚠️ ${data.error ?? "Erro ao disparar. Verifique as configurações do Netlify."}`);
+      } else {
+        setDispatchStatus(
+          `✅ Disparo concluído! ${data.sent ?? 0} enviadas • ${data.failed ?? 0} falhas • ${data.skipped ?? 0} puladas`,
+        );
+        router.refresh();
+      }
+    } catch {
+      setDispatchStatus("⚠️ Erro ao acionar o motor de disparo.");
+    } finally {
+      setDispatching(false);
+    }
+  }
 
   return (
     <form
@@ -362,11 +402,17 @@ function ScheduleForm({ campaignId }: { campaignId: string }) {
         <button
           className="turbo-instant-launch-btn"
           type="submit"
-          disabled={pending}
+          disabled={pending || dispatching}
           title="Inicia o disparo em massa agora mesmo"
         >
           <Zap size={15} />
-          <span>{pending ? "Disparando..." : "DISPARAR AGORA"}</span>
+          <span>
+            {dispatching
+              ? "Enviando mensagens..."
+              : pending
+                ? "Preparando disparo..."
+                : "⚡ DISPARAR AGORA"}
+          </span>
         </button>
 
         {/* Agendamento Opcional */}
@@ -381,7 +427,7 @@ function ScheduleForm({ campaignId }: { campaignId: string }) {
           <button
             className="turbo-schedule-btn"
             type="submit"
-            disabled={pending}
+            disabled={pending || dispatching}
           >
             Agendar
           </button>
@@ -389,6 +435,14 @@ function ScheduleForm({ campaignId }: { campaignId: string }) {
       </div>
 
       <ActionMessage state={state} />
+      {dispatchStatus && (
+        <div
+          className={`campaign-action-message ${dispatchStatus.startsWith("✅") ? "is-success" : "is-error"}`}
+          role="status"
+        >
+          <span>{dispatchStatus}</span>
+        </div>
+      )}
     </form>
   );
 }
